@@ -1,47 +1,16 @@
-module Bowling (toFrames) where
-
-import Control.Monad
-
-{-
- - 9 1		5 3
- - 10+5		8
- -
- - 10		5 3
- - 10+5+3	8
- -
- - 9 1		10		7 2
- - 10+10	10+7+2	9
- - 20		19		9
- -}
-
-data Frame = Strike | Spare Int Int | Rolls Int Int | PartialFrame Int deriving Show
-
-toFrames :: [Int] -> [Frame]
-toFrames [] = []
-toFrames (x:[])
-	|x == 10		= [Strike]
-	|otherwise		= [PartialFrame x]
-toFrames (x:x':xs)
-	|x == 10		= Strike	 : toFrames (x':xs)
-	|x + x' == 10	= Spare x x' : toFrames xs
-	|otherwise		= Rolls x x' : toFrames xs
-
-
 ignore :: Int -> Int -> Int
 ignore _ _ = 0
 
-scoreAccum :: Frame -> (Int, Int -> Int -> Int)
-scoreAccum Strike		    = (10,  (+))
-scoreAccum (Spare a b)	    = (10,  const)
-scoreAccum (Rolls a b)	    = (a+b, \_ _ -> 0)
-scoreAccum (PartialFrame a) = (a ,\_ _ -> 0)
-
 scoreAccum' :: [Int] -> [(Int, Int -> Int -> Int)]
 scoreAccum' []    = []
+--strike
 scoreAccum' (10:xs) = (10, (+)) : scoreAccum' xs
+--partial
 scoreAccum' (a:[])  = [(a,ignore)]
 scoreAccum' (a:b:xs)
+	--spare
 	|a + b == 10  = (10,const) : scoreAccum' xs
+	--non-spare
 	|otherwise	  = (a+b,ignore) : scoreAccum' xs
 
 applySnd :: (a,b -> c) -> b -> (a,c)
@@ -59,3 +28,14 @@ score xs = zipWith applySnd
 			tail' (10:xs)  = xs ++ [0]
 			tail' (a:[])   = [0]
 			tail' (a:b:xs) = xs ++ [0,0]
+
+display :: [Int] -> String
+display [] = ""
+display (10:xs) = "X " ++ display xs
+display (a:[])	= show a
+display (a:b:xs)
+	|a + b == 10 = display' a ++ "/" ++ display xs
+	|otherwise   = display' a ++ display' b
+	where
+		display' 0 = "-"
+		display' a = show a
