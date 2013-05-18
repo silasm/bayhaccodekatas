@@ -1,5 +1,7 @@
 module Bowling (toFrames) where
 
+import Control.Monad
+
 {-
  - 9 1		5 3
  - 10+5		8
@@ -24,29 +26,36 @@ toFrames (x:x':xs)
 	|x + x' == 10	= Spare x x' : toFrames xs
 	|otherwise		= Rolls x x' : toFrames xs
 
-score :: [Frame] -> Int
-score [] = 0
-score (Strike:[]) = 10
-score (Strike:next:[]) = 10 + 2 * score1 next
-score (Strike:Strike:a:rest) = 20 + score1 (head tltl) + score rest
-score (Strike:rest) = 10 + score1 (head rest) + score rest
-score (Spare _ _:[]) = 10
-score (Spare _ _:rest) = 10 + score1 (head rest) + score rest
-score (Rolls a b:rest) = a + b + score rest
 
-score1 :: Frame -> Int
-score1 Strike = 10
-score1 (Spare _ _) = 10
-score1 (Rolls a b) = a + b
-score1 (PartialFrame a) = a
+ignore :: Int -> Int -> Int
+ignore _ _ = 0
 
-scoreAccum :: Frame -> (Int, Maybe Int -> Maybe Int -> Maybe Int)
-scoreAccum Strike		  = (10,  liftM2 (+))
-scoreAccum (Spare a b)	  = (10,  const)
-scoreAccum (Rolls a b)	  = (a+b, \_ _ -> Nothing)
-scoreAccum (PartialFrame a) = (a ,\_ _ -> Nothing)
+scoreAccum :: Frame -> (Int, Int -> Int -> Int)
+scoreAccum Strike		    = (10,  (+))
+scoreAccum (Spare a b)	    = (10,  const)
+scoreAccum (Rolls a b)	    = (a+b, \_ _ -> 0)
+scoreAccum (PartialFrame a) = (a ,\_ _ -> 0)
+
+scoreAccum' :: [Int] -> [(Int, Int -> Int -> Int)]
+scoreAccum' []    = []
+scoreAccum' (10:xs) = (10, (+)) : scoreAccum' xs
+scoreAccum' (a:[])  = [(a,ignore)]
+scoreAccum' (a:b:xs)
+	|a + b == 10  = (10,const) : scoreAccum' xs
+	|otherwise	  = (a+b,ignore) : scoreAccum' xs
 
 applySnd :: (a,b -> c) -> b -> (a,c)
 applySnd (a,f) b = (a, f b)
 
-score = map scoreAccum
+score :: [Int] -> [(Int,Int)]
+score xs = zipWith applySnd
+	(zipWith applySnd (scoreAccum' xs) (tail' xs))
+	(tail' $ tail' xs)
+		where
+			-- tail that starts at the second frame and adds
+			-- zeros on the end to preserve list length.
+			tail' :: [Int] -> [Int]
+			tail' []	   = []
+			tail' (10:xs)  = xs ++ [0]
+			tail' (a:[])   = [0]
+			tail' (a:b:xs) = xs ++ [0,0]
